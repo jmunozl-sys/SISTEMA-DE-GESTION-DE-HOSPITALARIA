@@ -36,7 +36,7 @@
   <center>
     <h3 class='alert alert-success'>¡Envíenos sus valiosos comentarios!</h3>
 
-    <form method="POST">
+    <form method="POST" id="contactForm">
       {% csrf_token %}
       <div class="form-group">
         <p><h3>{{ form.as_p }}</h3></p>
@@ -71,29 +71,25 @@
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
   <script>
-    // Coordenadas fijas del EsSalud Hospital Nivel II Pasco
+    // 1. Configuración de Mapa e Itinerario Leaflet
     const hospitalLat = -10.6860745;
     const hospitalLng = -76.2653853;
 
-    // Inicializar mapa centrado en el hospital
     const map = L.map('map').setView([hospitalLat, hospitalLng], 15);
 
-    // Cargar capa del mapa
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Marcador del Hospital
     L.marker([hospitalLat, hospitalLng]).addTo(map)
       .bindPopup('<b>EsSalud Hospital Nivel II Pasco</b><br>Atención 24/7')
       .openPopup();
 
     let controlRuta = null;
 
-    // Función de Geolocalización y Trazado de Ruta
     function calcularRuta(modoTransporte) {
       if (!navigator.geolocation) {
-        alert("Tu navegador no admite la geolocalización.");
+        alert("Tu navegador no admite geolocalización.");
         return;
       }
 
@@ -102,20 +98,16 @@
           const userLat = posicion.coords.latitude;
           const userLng = posicion.coords.longitude;
 
-          // Remover la ruta anterior si existe
           if (controlRuta) {
             map.removeControl(controlRuta);
           }
 
-          // Dibujar nueva ruta en el mapa
           controlRuta = L.Routing.control({
             waypoints: [
               L.latLng(userLat, userLng),
               L.latLng(hospitalLat, hospitalLng)
             ],
-            router: L.Routing.osrmv1({
-              profile: modoTransporte // 'driving' para auto, 'foot' para peatón
-            }),
+            router: L.Routing.osrmv1({ profile: modoTransporte }),
             lineOptions: {
               styles: [{ color: modoTransporte === 'driving' ? '#007bff' : '#28a745', weight: 6 }]
             },
@@ -128,29 +120,39 @@
             }
           }).addTo(map);
         },
-        () => {
-          alert("Por favor, permite el acceso a tu ubicación en el navegador para trazar la ruta.");
-        }
+        () => alert("Por favor, permite el acceso a tu ubicación en el navegador.")
       );
     }
 
-    // Webhook de Google Apps Script para enviar alertas por correo
+    // 2. Envío Asíncrono a Google Apps Script
     const scriptURL = 'https://script.google.com/a/macros/undac.edu.pe/s/AKfycbxcgwuHZZTTge_tfCYNjnv4SOM50nJ61Rc4CkjihQWKOnlTaHkAQ-gTc6HH-WsvDt3Z/exec';
 
-    const contactForm = document.querySelector('form');
+    const contactForm = document.getElementById('contactForm');
     if (contactForm) {
-      contactForm.addEventListener('submit', function(e) {
-        const mensajeInput = document.querySelector('textarea[name="message"]') || document.querySelector('input[name="message"]');
+      contactForm.addEventListener('submit', async function(e) {
+        e.preventDefault(); 
 
-        fetch(scriptURL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nombre: 'Paciente / Usuario Web',
-            mensaje: mensajeInput ? mensajeInput.value : 'Consulta enviada desde la web'
-          })
+        const inputs = contactForm.querySelectorAll('input[type="text"], textarea');
+        let contenido = '';
+        inputs.forEach(input => {
+          if (input.value) contenido += `${input.name}: ${input.value}\n`;
         });
+
+        try {
+          await fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre: 'Paciente / Usuario Web',
+              mensaje: contenido || 'Mensaje enviado desde la web'
+            })
+          });
+        } catch (err) {
+          console.error('Error al enviar webhook:', err);
+        }
+
+        contactForm.submit();
       });
     }
   </script>
