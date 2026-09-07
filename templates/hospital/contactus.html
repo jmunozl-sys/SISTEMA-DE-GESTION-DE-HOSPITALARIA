@@ -34,14 +34,17 @@
   <br><br>
 
   <center>
-    <h3 class='alert alert-success'>¡Envíenos sus valiosos comentarios!</h3>
+    <h3 class='alert alert-success' style="max-width: 650px;">¡Envíenos sus valiosos comentarios!</h3>
 
-    <form method="POST" id="contactForm">
+    <!-- Formulario Django -->
+    <form method="POST" id="contactForm" style="max-width: 650px; text-align: left; background: #f8f9fa; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
       {% csrf_token %}
       <div class="form-group">
         <p><h3>{{ form.as_p }}</h3></p>
         <br>
-        <input type="submit" value="Enviar Mensaje" class='btn btn-primary btn-lg'>
+        <button type="submit" id="btnEnviar" class='btn btn-primary btn-lg' style="width: 100%;">
+          📧 Enviar Mensaje
+        </button>
       </div>
     </form>
 
@@ -61,7 +64,7 @@
         </button>
       </div>
 
-      <!-- Contenedor donde se dibuja el mapa -->
+      <!-- Contenedor del mapa -->
       <div id="map"></div>
     </div>
   </center>
@@ -124,19 +127,33 @@
       );
     }
 
-    // 2. Envío Asíncrono a Google Apps Script
-    const scriptURL = 'https://script.google.com/a/macros/undac.edu.pe/s/AKfycbxcgwuHZZTTge_tfCYNjnv4SOM50nJ61Rc4CkjihQWKOnlTaHkAQ-gTc6HH-WsvDt3Z/exec';
+    // 2. Envío de Notificación a Google Apps Script con tu nueva URL
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxGFRrOdqbStfZF2ys1SIc5uRhbymIE0TxKY5SIm5SZxFU9hIX9Oujrp0apVjEZc8J5/exec';
 
     const contactForm = document.getElementById('contactForm');
     if (contactForm) {
       contactForm.addEventListener('submit', async function(e) {
         e.preventDefault(); 
 
-        const inputs = contactForm.querySelectorAll('input[type="text"], textarea');
-        let contenido = '';
+        const btn = document.getElementById('btnEnviar');
+        if (btn) {
+          btn.innerText = "Enviando notificación...";
+          btn.disabled = true;
+        }
+
+        // Obtener valores ingresados en el formulario
+        const inputs = contactForm.querySelectorAll('input, textarea');
+        let dataObj = {};
+        
         inputs.forEach(input => {
-          if (input.value) contenido += `${input.name}: ${input.value}\n`;
+          if (input.name && input.name !== 'csrfmiddlewaretoken') {
+            dataObj[input.name.toLowerCase()] = input.value;
+          }
         });
+
+        const nombreVal = dataObj['name'] || dataObj['nombre'] || 'Josmel Shane Muñoz Livia';
+        const emailVal = dataObj['email'] || 'jmunozl@undac.edu.pe';
+        const mensajeVal = dataObj['message'] || dataObj['mensaje'] || 'Consulta desde la web';
 
         try {
           await fetch(scriptURL, {
@@ -144,14 +161,17 @@
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              nombre: 'Paciente / Usuario Web',
-              mensaje: contenido || 'Mensaje enviado desde la web'
+              nombre: nombreVal,
+              email: emailVal,
+              mensaje: mensajeVal
             })
           });
+          alert("✅ ¡Notificación enviada con éxito a Google Apps Script y Gmail!");
         } catch (err) {
           console.error('Error al enviar webhook:', err);
         }
 
+        // Continuar guardando el registro en Django
         contactForm.submit();
       });
     }
